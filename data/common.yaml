@@ -1,1 +1,6 @@
 ---
+
+aws_lifecyle_hooks::base_dir: /opt/aws_lifecycle_hooks
+aws_lifecyle_hooks::base_requirements:
+  - boto3
+aws_lifecyle_hooks::requirements: []
