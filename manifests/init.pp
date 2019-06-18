@@ -7,11 +7,6 @@
 # @param entry_script       Script that will be triggered at instance boot. Relative to $base_dir.
 # @param script_order_index Ordering index in the 'per-boot' dirctory.
 # @param script_source      Puppet File resource 'source' param for installing needed files. 
-# @param py_version         Python version to install. See python class for details
-# @param py_pip             Desired installation state for python-pip.
-# @param py_dev             Desired installation state for python-dev
-# @param py_virtualenv      Desired installation state for python-virtualenv.
-# @param py_gunicorn        Desired installation state for Gunicorn.
 #
 class aws_lifecycle_hooks (
   String                            $base_dir           = '/opt/aws_lifecycle_hooks',
@@ -20,11 +15,6 @@ class aws_lifecycle_hooks (
   Optional[String]                  $entry_script       = undef,
   Integer                           $script_order_index = 99,
   Optional[String]                  $script_source      = undef,
-  String                            $py_version         = 'system',
-  Enum['present','absent','latest'] $py_pip             = 'present',
-  Enum['present','absent','latest'] $py_dev             = 'absent',
-  Enum['present','absent','latest'] $py_virtualenv      = 'present',
-  Enum['present','absent','latest'] $py_gunicorn        = 'absent',
 ){
   # resources
   if $script_source {
