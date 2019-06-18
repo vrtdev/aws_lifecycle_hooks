@@ -69,18 +69,11 @@ class aws_lifecycle_hooks (
     }
   }
 
-  class { '::python':
-    version    => $py_version,
-    pip        => $py_pip,
-    dev        => $py_dev,
-    virtualenv => $py_virtualenv,
-    gunicorn   => $py_gunicorn,
-  }
-
   python::virtualenv { $base_dir:
     ensure       => 'present',
     venv_dir     => "${base_dir}/venv",
     version      => '3',
     requirements => "${base_dir}/requirements.txt",
+    require      => Class['python']
   }
 }
