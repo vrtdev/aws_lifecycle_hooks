@@ -50,7 +50,7 @@ class aws_lifecycle_hooks (
     }
 
     # hook entry point
-    $bootstrap_lifecycle_hook_cmd = "${base_dir}/venv/bin/python ${base_dir}/${entry_script}"
+    $bootstrap_lifecycle_hook_cmd = "#!/bin/bash\n${base_dir}/venv/bin/python ${base_dir}/${entry_script}\n"
     file { "/var/lib/cloud/scripts/per-boot/${script_order_index}_bootstrap_lifecycle_hook.sh":
       ensure  => file,
       mode    => '0755',
