@@ -4,35 +4,33 @@
 # @param base_dir           Directory to deploy lifecycle hook scripts to.
 # @param base_requirements  Requirements needed for the base tools. Array of lines to add to requirements.txt
 # @param requirements       Array of additional requirements. Array of lines to add to requirements.txt
-# @param entry_script       Script that will be triggered at instance boot. Relative to $base_dir.
-# @param script_order_index Ordering index in the 'per-boot' dirctory.
-# @param script_source      Puppet File resource 'source' param for installing needed files. 
+# @param entry_scripts      Scripts that will be triggered at instance boot.
+# @param script_sources     Array of Puppet File resource 'source' param for installing needed files. 
 #
 class aws_lifecycle_hooks (
   String                            $base_dir           = '/opt/aws_lifecycle_hooks',
   Array[String]                     $base_requirements  = ['boto3'],
   Array[String]                     $requirements       = [],
-  Optional[String]                  $entry_script       = undef,
-  Integer                           $script_order_index = 99,
-  Optional[String]                  $script_source      = undef,
+  Hash                              $entry_scripts      = {},
+  Array[String]                     $script_sources     = [],
 ){
   # resources
-  if $script_source {
+  if ! empty($script_sources) {
     $recurse = true
-    $source = $script_source
+    $source = concat( $script_sources, 'puppet:///modules/aws_lifecycle_hooks/aws_lifecycle_hooks/')
+    $sourceselect = 'all'
+  } else {
+    $recurse = undef
+    $source = undef
+    $sourceselect = undef
   }
 
   file { $base_dir:
-    ensure  => directory,
-    mode    => '0755',
-    recurse => $recurse,
-    source  => $source,
-  }
-
-  file { "${base_dir}/set_inservice.py":
-    ensure => file,
-    mode   => '0755',
-    source => 'puppet:///modules/aws_lifecycle_hooks/set_inservice.py',
+    ensure       => directory,
+    mode         => '0755',
+    recurse      => $recurse,
+    source       => $source,
+    sourceselect => $sourceselect,
   }
 
   $requirements_array = concat($base_requirements, $requirements)
@@ -43,19 +41,17 @@ class aws_lifecycle_hooks (
     content => $requirements_str,
   }
 
-  if $entry_script {
-    exec { 'aws_lifecycle_hooks : Create /var/lib/cloud/scripts/per-boot':
-      command => 'mkdir -p /var/lib/cloud/scripts/per-boot',
-      creates => '/var/lib/cloud/scripts/per-boot',
-    }
+  exec { 'aws_lifecycle_hooks : Create /var/lib/cloud/scripts/per-boot':
+    command => 'mkdir -p /var/lib/cloud/scripts/per-boot',
+    creates => '/var/lib/cloud/scripts/per-boot',
+  }
 
-    # hook entry point
-    $bootstrap_lifecycle_hook_cmd = "#!/bin/bash\n${base_dir}/venv/bin/python ${base_dir}/${entry_script}\n"
-    file { "/var/lib/cloud/scripts/per-boot/${script_order_index}_bootstrap_lifecycle_hook.sh":
-      ensure  => file,
-      mode    => '0755',
-      content => $bootstrap_lifecycle_hook_cmd,
-      require => Exec['aws_lifecycle_hooks : Create /var/lib/cloud/scripts/per-boot'],
+  if $entry_scripts {
+    $entry_scripts.each |String $name, Hash $settings| {
+      aws_lifecycle_hooks::entry_script {$name:
+        base_dir => $base_dir,
+        *        => $settings,
+      }
     }
   }
 
