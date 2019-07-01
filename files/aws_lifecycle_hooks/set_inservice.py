@@ -2,13 +2,23 @@
 '''
 File managed by puppet in module profiles::service::ldap
 '''
-
+import enum
 import json
 import urllib.request
 import boto3
 
 
-def mark_as_healthy(asg_client, asg_name, instance_id, result="CONTINUE"):
+class LifecycleActionResult(enum.Enum):
+    CONTINUE = "CONTINUE"
+    ABANDON = "ABANDON"
+
+
+def mark_as_healthy(
+        asg_client,
+        asg_name: str,
+        instance_id: str,
+        result: LifecycleActionResult = LifecycleActionResult.CONTINUE,
+) -> None:
     # Signal ASG that we're done
     # Figure out which hook to signal
     # BUG: this assumes only 1 LAUNCHING-hook is registered
@@ -30,7 +40,7 @@ def mark_as_healthy(asg_client, asg_name, instance_id, result="CONTINUE"):
         AutoScalingGroupName=asg_name,
         LifecycleHookName=asg_hooks,
         InstanceId=instance_id,
-        LifecycleActionResult=result,
+        LifecycleActionResult=result.value,
     )
 
 
