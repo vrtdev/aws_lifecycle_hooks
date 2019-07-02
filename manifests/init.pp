@@ -31,7 +31,7 @@ class aws_lifecycle_hooks (
     ensure       => directory,
     mode         => '0755',
     recurse      => $recurse,
-    source       => $source,
+    source       => $_source,
     sourceselect => $sourceselect,
   }
 
