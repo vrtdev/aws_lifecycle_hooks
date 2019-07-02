@@ -72,10 +72,10 @@ def state_dir_ok(state_dir):
 
     for r, d, f in os.walk(state_dir):
         for statefile in f:
-            statefile_h = open(os.path.join(r + '/' + statefile), 'r')
-            state = statefile_h.read()
-            if state:
-                return False
+            with open(os.path.join(r + '/' + statefile), "r") as file:
+                state = file.read()
+                if state and not state.isspace():
+                    return False
 
     return True
 
