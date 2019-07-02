@@ -2,6 +2,7 @@
 '''
 File managed by puppet in module profiles::service::ldap
 '''
+import os
 import enum
 import json
 import urllib.request
@@ -68,8 +69,6 @@ def instance_data():
 
 
 def state_dir_ok(state_dir):
-    import os
-
     for r, d, f in os.walk(state_dir):
         for statefile in f:
             with open(os.path.join(r + '/' + statefile), "r") as file:
