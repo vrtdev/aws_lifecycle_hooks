@@ -54,7 +54,7 @@ def attach_volume(
     """:type: pyboto3.ec2"""
 
     try:
-        result = ec2_client.attach_volume(
+        ec2_client.attach_volume(
             VolumeId=volume_id,
             InstanceId=instance_id,
             Device=device_name,
