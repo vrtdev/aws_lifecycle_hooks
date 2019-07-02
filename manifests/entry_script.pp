@@ -17,7 +17,7 @@ define aws_lifecycle_hooks::entry_script (
     $cmd_init = undef
   }
 
-  $cmd = join([$cmd_init, "${base_dir}/${script_name}", $parameters, "\n"], ' ')
+  $cmd = join(['exec', $cmd_init, "${base_dir}/${script_name}", $parameters, "\n"], ' ')
 
   $entry_script = join(['#!/bin/bash', $cmd], "\n")
 
