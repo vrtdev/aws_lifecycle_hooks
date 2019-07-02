@@ -16,21 +16,19 @@ class aws_lifecycle_hooks (
 ){
   # resources
   if ! empty($script_sources) {
-    $recurse = true
-    $source = concat( $script_sources, 'puppet:///modules/aws_lifecycle_hooks/aws_lifecycle_hooks/')
-    $sourceselect = 'all'
+    $source = $script_sources
   } else {
-    $recurse = undef
-    $source = undef
-    $sourceselect = undef
+    $source = []
   }
+
+  $_source = concat( $source, 'puppet:///modules/aws_lifecycle_hooks/aws_lifecycle_hooks/')
 
   file { $base_dir:
     ensure       => directory,
     mode         => '0755',
-    recurse      => $recurse,
-    source       => $source,
-    sourceselect => $sourceselect,
+    recurse      => true,
+    source       => $_source,
+    sourceselect => 'all',
   }
 
   $requirements_array = concat($base_requirements, $requirements)
