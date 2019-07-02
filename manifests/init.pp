@@ -17,13 +17,15 @@ class aws_lifecycle_hooks (
   # resources
   if ! empty($script_sources) {
     $recurse = true
-    $source = concat( $script_sources, 'puppet:///modules/aws_lifecycle_hooks/aws_lifecycle_hooks/')
+    $source = $script_sources
     $sourceselect = 'all'
   } else {
     $recurse = undef
     $source = undef
     $sourceselect = undef
   }
+
+  $_source = concat( $source, 'puppet:///modules/aws_lifecycle_hooks/aws_lifecycle_hooks/')
 
   file { $base_dir:
     ensure       => directory,
