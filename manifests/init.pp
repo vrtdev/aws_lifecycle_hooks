@@ -6,6 +6,7 @@
 # @param requirements       Array of additional requirements. Array of lines to add to requirements.txt
 # @param entry_scripts      Scripts that will be triggered at instance boot.
 # @param script_sources     Array of Puppet File resource 'source' param for installing needed files. 
+# @param state_dir          Directory to check for failure status reports.
 #
 class aws_lifecycle_hooks (
   String                            $base_dir           = '/opt/aws_lifecycle_hooks',
@@ -13,6 +14,7 @@ class aws_lifecycle_hooks (
   Array[String]                     $requirements       = [],
   Hash                              $entry_scripts      = {},
   Array[String]                     $script_sources     = [],
+  String                            $state_dir          = '/var/run/aws_lifecycle_hooks/status',
 ){
   # resources
   if ! empty($script_sources) {
@@ -29,6 +31,13 @@ class aws_lifecycle_hooks (
     recurse      => true,
     source       => $_source,
     sourceselect => 'all',
+  }
+
+  if $state_dir {
+    exec { 'aws_lifecycle_hooks : Create state_dir':
+      command => "mkdir -p ${state_dir}",
+      creates => $state_dir,
+    }
   }
 
   $requirements_array = concat($base_requirements, $requirements)

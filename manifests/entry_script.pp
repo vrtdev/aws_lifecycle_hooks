@@ -6,9 +6,10 @@ define aws_lifecycle_hooks::entry_script (
   String                            $base_dir,
   String                            $script_name,
   Integer[1]                        $index,
-  Boolean                           $use_python_venv = true,
-  Array[String]                     $parameters      = [],
-  Enum['file','present','absent']   $ensure          = 'file',
+  Boolean                           $use_python_venv      = true,
+  Array[String]                     $parameters           = [],
+  Enum['file','present','absent']   $ensure               = 'file',
+  Boolean                           $pass_state_dir_param = false,
 ) {
   # hook entry point
   if $use_python_venv {
@@ -17,7 +18,13 @@ define aws_lifecycle_hooks::entry_script (
     $cmd_init = undef
   }
 
-  $cmd = join(['exec', $cmd_init, "${base_dir}/${script_name}", $parameters, "\n"], ' ')
+  if $pass_state_dir_param {
+    $_parameters = concat(['--state-dir', $aws_lifecycle_hooks::state_dir], $parameters)
+  } else {
+    $_parameters = $parameters
+  }
+
+  $cmd = join(['exec', $cmd_init, "${base_dir}/${script_name}", $_parameters, "\n"], ' ')
 
   $entry_script = join(['#!/bin/bash', $cmd], "\n")
 
