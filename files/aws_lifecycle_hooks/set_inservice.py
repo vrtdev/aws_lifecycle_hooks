@@ -2,6 +2,7 @@
 '''
 File managed by puppet in module profiles::service::ldap
 '''
+import os
 import enum
 import json
 import urllib.request
@@ -67,6 +68,34 @@ def instance_data():
     return asg_c, asg, instance_id
 
 
+def state_dir_ok(state_dir):
+    for r, d, f in os.walk(state_dir):
+        for statefile in f:
+            with open(os.path.join(r + '/' + statefile), "r") as file:
+                state = file.read()
+                if state and not state.isspace():
+                    return False
+
+    return True
+
+
 if __name__ == "__main__":
-    asg_c, asg, instance_id = instance_data()
-    mark_as_healthy(asg_c, asg, instance_id)
+    import argparse
+
+    parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser.add_argument("--state-dir", type=str, default=None,
+                        help="Directory to check for state files. "
+                             "If set, this script will check the state files in this dir "
+                             "and not send the lifecycle 'CONTINUE' status if any file is non-empty. "
+                             "When not specified, no state will be checked")
+
+    args = parser.parse_args()
+
+    if args.state_dir:
+        state_ok = state_dir_ok(args.state_dir)
+    else:
+        state_ok = True
+
+    if state_ok:
+        asg_c, asg, instance_id = instance_data()
+        mark_as_healthy(asg_c, asg, instance_id)
