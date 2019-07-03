@@ -5,11 +5,11 @@ File managed by puppet in module aws_lifecycle_hooks
 import json
 import functools
 import urllib.request
-import boto3
+import typing
 
 
 @functools.lru_cache(maxsize=1)
-def get_instance_identity():
+def get_instance_identity() -> typing.Mapping[str, typing.Any]:
     instance_identity = urllib.request.urlopen(
         "http://169.254.169.254/2016-09-02/dynamic/instance-identity/document"
     ).read()
@@ -17,16 +17,16 @@ def get_instance_identity():
     return instance_identity
 
 
-def get_instance_id():
-    get_instance_identity()['instanceId']
+def get_instance_id() -> str:
+    return get_instance_identity()['instanceId']
 
 
-def get_region():
-    get_instance_identity()['region']
+def get_instance_region() -> str:
+    return get_instance_identity()['region']
 
 
 @functools.lru_cache(maxsize=1)
-def get_user_data():
+def get_user_data() -> typing.Mapping[str, typing.Any]:
     user_data = urllib.request.urlopen(
         "http://169.254.169.254/2016-09-02/user-data"
     ).read()
@@ -34,13 +34,14 @@ def get_user_data():
     return user_data
 
 
-@functools.lru_cache(maxsize=1)
-def get_asg_data(region, instance_id):
-    asg_c = boto3.client('autoscaling', region_name=region)
-    """:type : pyboto3.autoscaling"""
+@functools.lru_cache()
+def get_asg_name(
+        region: str,
+        instance_id: str,
+        asg_client
+) -> str:
+    asg_info = asg_client.describe_auto_scaling_instances(InstanceIds=[instance_id])
+    asg_name = asg_info[u'AutoScalingInstances'][0][u'AutoScalingGroupName']
+    print("I am part of Auto Scaling Group {asg_name}".format(asg_name=asg_name))
 
-    asg_info = asg_c.describe_auto_scaling_instances(InstanceIds=[instance_id])
-    asg = asg_info[u'AutoScalingInstances'][0][u'AutoScalingGroupName']
-    print("I am part of Auto Scaling Group {asg}".format(asg=asg))
-
-    return asg_c, asg
+    return asg_name

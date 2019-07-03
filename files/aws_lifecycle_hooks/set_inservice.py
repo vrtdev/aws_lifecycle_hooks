@@ -5,6 +5,7 @@ File managed by puppet in module aws_lifecycle_hooks
 import os
 import enum
 import tools
+import boto3
 
 
 class LifecycleActionResult(enum.Enum):
@@ -73,6 +74,8 @@ if __name__ == "__main__":
 
     if state_ok:
         instance_id = tools.get_instance_id()
-        region = tools.get_region()
-        asg_c, asg = tools.get_asg_data(region, instance_id)
-        mark_as_healthy(asg_c, asg, instance_id)
+        region = tools.get_instance_region()
+        asg_client = boto3.client('autoscaling', region_name=region)
+        """:type : pyboto3.autoscaling"""
+        asg_name = tools.get_asg_name(instance_id, asg_client)
+        mark_as_healthy(asg_client, asg_name, instance_id)
