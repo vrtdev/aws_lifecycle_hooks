@@ -1,8 +1,10 @@
+#!/usr/bin/env python
+'''
+File managed by puppet in module aws_lifecycle_hooks
+'''
 import time
 import typing
-import functools
-import urllib.request
-import json
+import tools
 
 import boto3
 import botocore.exceptions
@@ -14,15 +16,6 @@ class VolumeInUse(botocore.exceptions.ClientError):
             operation_name=client_error.operation_name,
             error_response=client_error.response,
         )
-
-
-@functools.lru_cache(maxsize=1)
-def get_instance_identity():
-    instance_identity = urllib.request.urlopen(
-        "http://169.254.169.254/2016-09-02/dynamic/instance-identity/document"
-    ).read()
-    instance_identity = json.loads(instance_identity.decode('utf-8'))
-    return instance_identity
 
 
 def attach_volume(
@@ -45,10 +38,10 @@ def attach_volume(
                           the requested instance)
     """
     if instance_id is None:
-        instance_id = get_instance_identity()['instanceId']
+        instance_id = tools.get_instance_id()
 
     if region_name is None:
-        region_name = get_instance_identity()['region']
+        region_name = tools.get_region()
 
     ec2_client = boto3.client('ec2', region_name=region_name)
     """:type: pyboto3.ec2"""
