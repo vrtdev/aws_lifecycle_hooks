@@ -1,12 +1,10 @@
 #!/usr/bin/env python
 '''
-File managed by puppet in module profiles::service::ldap
+File managed by puppet in module aws_lifecycle_hooks
 '''
 import os
 import enum
-import json
-import urllib.request
-import boto3
+import tools
 
 
 class LifecycleActionResult(enum.Enum):
@@ -45,29 +43,6 @@ def mark_as_healthy(
     )
 
 
-def instance_data():
-    instance_identity = urllib.request.urlopen(
-            "http://169.254.169.254/2016-09-02/dynamic/instance-identity/document"
-        ).read()
-    instance_identity = json.loads(instance_identity.decode('utf-8'))
-
-    instance_id = instance_identity['instanceId']
-    region = instance_identity['region']
-    print("I am {iid}, running in {r}".format(
-        iid=instance_id,
-        r=region,
-    ))
-
-    asg_c = boto3.client('autoscaling', region_name=region)
-    """:type : pyboto3.autoscaling"""
-
-    asg_info = asg_c.describe_auto_scaling_instances(InstanceIds=[instance_id])
-    asg = asg_info[u'AutoScalingInstances'][0][u'AutoScalingGroupName']
-    print("I am part of Auto Scaling Group {asg}".format(asg=asg))
-
-    return asg_c, asg, instance_id
-
-
 def state_dir_ok(state_dir):
     for r, d, f in os.walk(state_dir):
         for statefile in f:
@@ -97,5 +72,7 @@ if __name__ == "__main__":
         state_ok = True
 
     if state_ok:
-        asg_c, asg, instance_id = instance_data()
+        instance_id = tools.get_instance_id()
+        region = tools.get_region()
+        asg_c, asg = tools.get_asg_data(region, instance_id)
         mark_as_healthy(asg_c, asg, instance_id)
