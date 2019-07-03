@@ -18,29 +18,51 @@ def get_instance_identity() -> typing.Mapping[str, typing.Any]:
 
 
 def get_instance_id() -> str:
-    return get_instance_identity()['instanceId']
+    instance_id = get_instance_identity()['instanceId']
+    print("My instance_id is  {instance_id}".format(instance_id=instance_id))
+    return instance_id
 
 
 def get_instance_region() -> str:
-    return get_instance_identity()['region']
+    instance_region = get_instance_identity()['region']
+    print("My region is  {instance_region}".format(instance_region=instance_region))
+    return instance_region
 
 
 @functools.lru_cache(maxsize=1)
 def get_user_data() -> typing.Mapping[str, typing.Any]:
-    user_data = urllib.request.urlopen(
-        "http://169.254.169.254/2016-09-02/user-data"
-    ).read()
-    user_data = json.loads(user_data.decode('utf-8'))
-    return user_data
+    try:
+        user_data = urllib.request.urlopen(
+            "http://169.254.169.254/2016-09-02/user-data"
+        ).read()
+        user_data = json.loads(user_data.decode('utf-8'))
+        print("My user-data is {user_data}".format(user_data=user_data))
+        return user_data
+    except urllib.error.HTTPError as e:
+        if e.status == 404:
+            print('No user_data found.')
+        else:
+            raise
 
 
 @functools.lru_cache()
 def get_asg_name(
         instance_id: str,
-        asg_client
+        asg_client,
 ) -> str:
     asg_info = asg_client.describe_auto_scaling_instances(InstanceIds=[instance_id])
     asg_name = asg_info[u'AutoScalingInstances'][0][u'AutoScalingGroupName']
     print("I am part of Auto Scaling Group {asg_name}".format(asg_name=asg_name))
 
     return asg_name
+
+
+def test_tools():
+    import boto3
+
+    instance_id = get_instance_id()
+    region = get_instance_region()
+    asg_client = boto3.client('autoscaling', region_name=region)
+    """:type : pyboto3.autoscaling"""
+    get_asg_name(instance_id, asg_client)
+    get_user_data()
