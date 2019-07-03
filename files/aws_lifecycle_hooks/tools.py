@@ -36,7 +36,6 @@ def get_user_data() -> typing.Mapping[str, typing.Any]:
 
 @functools.lru_cache()
 def get_asg_name(
-        region: str,
         instance_id: str,
         asg_client
 ) -> str:
