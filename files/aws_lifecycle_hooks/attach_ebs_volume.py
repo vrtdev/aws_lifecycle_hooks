@@ -59,12 +59,63 @@ def attach_volume(
             raise
 
 
+def parse_user_data():
+    # user_data = tools.get_user_data()
+    return 'a', 'b'
+
+
+def try_attach(
+        volume_id: str,
+        device_name: str,
+        instance_id: str,
+        region: str,
+        retry_limit: int,
+        retry_interval: int,
+):
+    print("""\
+        volume_id {volume_id}
+        device_name {device_name}
+        instance_id {instance_id}
+        region {region}
+        retry_limit {retry_limit}
+        retry_interval {retry_interval}
+    """.format(
+        volume_id=volume_id,
+        device_name=device_name,
+        instance_id=instance_id,
+        region=region,
+        retry_limit=retry_limit,
+        retry_interval=retry_interval,
+    ))
+
+    attached = False
+    retry = 0
+    while not attached:
+        try:
+            retry = retry + 1
+            attach_volume(
+                volume_id=volume_id,
+                device_name=device_name,
+                region_name=region,
+                instance_id=instance_id,
+            )
+            attached = True
+        except VolumeInUse:
+            if retry_limit != 0 and retry >= retry_limit:
+                raise
+
+            time.sleep(retry_interval)
+
+
 if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument("volume_id", type=str,
+    parser.add_argument("--volume-id", type=str, default=None,
                         help="Volume ID to attach")
+    parser.add_argument("--device-name", type=str, default="/dev/sdf",
+                        help="Device name to present the attached volume as")
+
     parser.add_argument("--region", type=str, default=None,
                         help="Region to perform API calls in. When not "
                              "specified, use the region of the instance this is "
@@ -72,8 +123,6 @@ if __name__ == "__main__":
     parser.add_argument("--instance-id", type=str, default=None,
                         help="Instance ID to attach volume to. When not "
                              "specified, use the instance this is running on")
-    parser.add_argument("--device-name", type=str, default="/dev/sdf",
-                        help="Device name to present the attached volume as")
 
     parser.add_argument("--retry-limit",
                         type=int, metavar="TRIES", default=1,
@@ -85,20 +134,9 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    attached = False
-    retry = 0
-    while not attached:
-        try:
-            retry = retry + 1
-            attach_volume(
-                volume_id=args.volume_id,
-                region_name=args.region,
-                instance_id=args.instance_id,
-                device_name=args.device_name,
-            )
-            attached = True
-        except VolumeInUse:
-            if args.retry_limit != 0 and retry >= args.retry_limit:
-                raise
+    args = vars(args)
 
-            time.sleep(args.retry_interval)
+    if not args['volume_id']:
+        args['volume_id'], args['device_name'] = parse_user_data()
+
+    try_attach(**args)
