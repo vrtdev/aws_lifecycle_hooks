@@ -6,6 +6,7 @@ import json
 import functools
 import urllib.request
 import typing
+import yaml
 
 
 @functools.lru_cache(maxsize=1)
@@ -35,8 +36,17 @@ def get_user_data() -> typing.Mapping[str, typing.Any]:
         user_data = urllib.request.urlopen(
             "http://169.254.169.254/2016-09-02/user-data"
         ).read()
-        user_data = json.loads(user_data.decode('utf-8'))
-        print("My user-data is {user_data}".format(user_data=user_data))
+        print("My raw user-data is {user_data}".format(user_data=user_data))
+        try:
+            user_data = yaml.safe_load(user_data)
+            print("My yaml user-data is {user_data}".format(user_data=user_data))
+        except:
+            try:
+                user_data = json.loads(user_data.decode('utf-8'))
+                print("My json user-data is {user_data}".format(user_data=user_data))
+            except:
+                pass
+
         return user_data
     except urllib.error.HTTPError as e:
         if e.status == 404:
