@@ -4,19 +4,13 @@ File managed by puppet in module aws_lifecycle_hooks
 '''
 import time
 import typing
-import tools
 
-# todo: are we sure this gets installed
+# todo: are we sure this gets installed?
 import boto3
 import botocore.exceptions
 
-
-class VolumeInUseError(botocore.exceptions.ClientError):
-    def __init__(self, client_error: botocore.exceptions.ClientError):
-        super().__init__(
-            operation_name=client_error.operation_name,
-            error_response=client_error.response,
-        )
+import tools
+from exceptions import VolumeInUseError, ParsingError
 
 
 def attach_volume(
@@ -34,7 +28,6 @@ def attach_volume(
     :param instance_id: The instance to attach the volume to. Default: this
                         instance
     :param device_name: Device name to attach under. Default: /dev/sdf
-    :rtype: None
     :raises: VolumeInUseError: if the volume is already attached somewhere (possibly
                           the requested instance)
     """
@@ -55,14 +48,34 @@ def attach_volume(
         )
     except botocore.exceptions.ClientError as e:
         if e.response['Error']['Code'] == "VolumeInUse":
-            raise VolumeInUseError(e)
+            raise VolumeInUseError(e) from e
         else:
             raise
 
 
-def parse_user_data() -> typing.Tuple[str,str]:
-    # user_data = tools.get_user_data()
-    return 'a', 'b'
+def get_volume_information_from_user_data() -> typing.Tuple[str, str]:
+    """
+    Get the volume id and device name from the user data.
+
+    For this we assume that:
+      - the user_data is parsable (yaml or json)
+      - there is only one one volume
+      - it looks like the following config
+
+    ```yaml
+    ---
+    attach_volumes:
+      - volume_id: volume_id
+        device_name: device_id
+    ```
+
+    :return: A tuple of volume id and device name (in that order)
+    """
+    attach_volumes = tools.get_parsed_user_data().get('attach_volumes', [])
+    if len(attach_volumes) != 1:
+        raise ParsingError("Only one volume supported at this time")
+    volume_information = attach_volumes[0]
+    return volume_information['volume_id'], volume_information['device_name']
 
 
 def try_attach(
@@ -132,6 +145,6 @@ if __name__ == "__main__":
     args = vars(args)
 
     if not args['volume_id']:
-        args['volume_id'], args['device_name'] = parse_user_data()
+        args['volume_id'], args['device_name'] = get_volume_information_from_user_data()
 
     try_attach(**args)
