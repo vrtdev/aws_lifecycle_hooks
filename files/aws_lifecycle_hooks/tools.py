@@ -5,7 +5,9 @@ File managed by puppet in module aws_lifecycle_hooks
 import json
 import functools
 import urllib.request
+import urllib.error
 import typing
+#todo: are we certain this gets installed?
 import yaml
 
 
@@ -31,7 +33,7 @@ def get_instance_region() -> str:
 
 
 @functools.lru_cache(maxsize=1)
-def get_user_data() -> typing.Mapping[str, typing.Any]:
+def get_user_data() -> typing.Union[str, typing.Mapping[str, typing.Any]]:
     try:
         user_data = urllib.request.urlopen(
             "http://169.254.169.254/2016-09-02/user-data"

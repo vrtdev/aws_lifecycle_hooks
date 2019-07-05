@@ -6,11 +6,12 @@ import time
 import typing
 import tools
 
+# todo: are we sure this gets installed
 import boto3
 import botocore.exceptions
 
 
-class VolumeInUse(botocore.exceptions.ClientError):
+class VolumeInUseError(botocore.exceptions.ClientError):
     def __init__(self, client_error: botocore.exceptions.ClientError):
         super().__init__(
             operation_name=client_error.operation_name,
@@ -34,14 +35,14 @@ def attach_volume(
                         instance
     :param device_name: Device name to attach under. Default: /dev/sdf
     :rtype: None
-    :raises: VolumeInUse: if the volume is already attached somewhere (possibly
+    :raises: VolumeInUseError: if the volume is already attached somewhere (possibly
                           the requested instance)
     """
     if instance_id is None:
         instance_id = tools.get_instance_id()
 
     if region_name is None:
-        region_name = tools.get_region()
+        region_name = tools.get_instance_region()
 
     ec2_client = boto3.client('ec2', region_name=region_name)
     """:type: pyboto3.ec2"""
@@ -54,12 +55,12 @@ def attach_volume(
         )
     except botocore.exceptions.ClientError as e:
         if e.response['Error']['Code'] == "VolumeInUse":
-            raise VolumeInUse(e)
+            raise VolumeInUseError(e)
         else:
             raise
 
 
-def parse_user_data():
+def parse_user_data() -> typing.Tuple[str,str]:
     # user_data = tools.get_user_data()
     return 'a', 'b'
 
@@ -71,28 +72,21 @@ def try_attach(
         region: str,
         retry_limit: int,
         retry_interval: int,
-):
-    print("""\
+) -> None:
+    print(f"""\
         volume_id {volume_id}
         device_name {device_name}
         instance_id {instance_id}
         region {region}
         retry_limit {retry_limit}
         retry_interval {retry_interval}
-    """.format(
-        volume_id=volume_id,
-        device_name=device_name,
-        instance_id=instance_id,
-        region=region,
-        retry_limit=retry_limit,
-        retry_interval=retry_interval,
-    ))
+    """)
 
     attached = False
     retry = 0
     while not attached:
         try:
-            retry = retry + 1
+            retry += 1
             attach_volume(
                 volume_id=volume_id,
                 device_name=device_name,
@@ -100,7 +94,8 @@ def try_attach(
                 instance_id=instance_id,
             )
             attached = True
-        except VolumeInUse:
+        except VolumeInUseError:
+            # 0 is used to signal unlimited retries
             if retry_limit != 0 and retry >= retry_limit:
                 raise
 
