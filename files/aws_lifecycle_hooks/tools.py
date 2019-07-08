@@ -7,10 +7,17 @@ import functools
 import urllib.request
 import urllib.error
 import typing
-#todo: are we certain this gets installed?
+# todo: are we certain this gets installed?
 import yaml
+import attr
 
 from exceptions import ParsingError
+
+
+@attr.s
+class VolumeAttachment:
+    volume_id = attr.ib()
+    device_name = attr.ib()
 
 
 @functools.lru_cache(maxsize=1)
@@ -24,13 +31,13 @@ def get_instance_identity() -> typing.Mapping[str, typing.Any]:
 
 def get_instance_id() -> str:
     instance_id = get_instance_identity()['instanceId']
-    print("My instance_id is  {instance_id}".format(instance_id=instance_id))
+    print("My instance_id is {instance_id}".format(instance_id=instance_id))
     return instance_id
 
 
 def get_instance_region() -> str:
     instance_region = get_instance_identity()['region']
-    print("My region is  {instance_region}".format(instance_region=instance_region))
+    print("My region is {instance_region}".format(instance_region=instance_region))
     return instance_region
 
 
@@ -40,7 +47,7 @@ def get_user_data() -> str:
         user_data = urllib.request.urlopen(
             "http://169.254.169.254/2016-09-02/user-data"
         ).read()
-        print(f"My raw user-data is {user_data}")
+        print("My raw user-data is {user_data}".format(user_data=user_data))
         return user_data
     except urllib.error.HTTPError as e:
         if e.status == 404:
@@ -52,14 +59,15 @@ def get_user_data() -> str:
 @functools.lru_cache(maxsize=1)
 def get_parsed_user_data() -> typing.Mapping[str, typing.Any]:
     user_data = get_user_data()
-    try:
-        # every JSON file is also valid YAML, so we only need to parse YAML.
-        user_data = yaml.safe_load(user_data)
-        print(f"My parsed user-data is {user_data}")
-    except yaml.YAMLError as e:
-        raise ParsingError("Failed to parse User Data") from e
+    if user_data:
+        try:
+            # every JSON file is also valid YAML, so we only need to parse YAML.
+            user_data = yaml.safe_load(user_data)
+            print("My parsed user-data is {user_data}".format(user_data=user_data))
+        except yaml.YAMLError as e:
+            raise ParsingError("Failed to parse User Data") from e
 
-    return user_data
+        return user_data
 
 
 @functools.lru_cache()

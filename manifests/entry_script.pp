@@ -6,7 +6,7 @@ define aws_lifecycle_hooks::entry_script (
   String                            $base_dir,
   String                            $script_name,
   Integer[1]                        $index,
-  Boolean                           $use_python_venv      = true,
+  Boolean                           $use_python_venv      = false,
   Array[String]                     $parameters           = [],
   Enum['file','present','absent']   $ensure               = 'file',
   Boolean                           $pass_state_dir_param = false,
@@ -28,7 +28,8 @@ define aws_lifecycle_hooks::entry_script (
 
   $entry_script = join(['#!/bin/bash', $cmd], "\n")
 
-  file { "/var/lib/cloud/scripts/per-boot/${index}_${script_name}.sh":
+  $index_str = sprintf('%02d', $index)
+  file { "/var/lib/cloud/scripts/per-boot/${index_str}_${script_name}.sh":
     ensure  => $ensure,
     mode    => '0755',
     content => $entry_script,

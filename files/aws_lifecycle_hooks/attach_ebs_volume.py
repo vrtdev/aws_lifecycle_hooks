@@ -10,7 +10,7 @@ import boto3
 import botocore.exceptions
 
 import tools
-from exceptions import VolumeInUseError, ParsingError
+from exceptions import VolumeInUseError
 
 
 def attach_volume(
@@ -53,29 +53,35 @@ def attach_volume(
             raise
 
 
-def get_volume_information_from_user_data() -> typing.Tuple[str, str]:
+def get_volume_information_from_user_data() -> list:
     """
     Get the volume id and device name from the user data.
 
     For this we assume that:
       - the user_data is parsable (yaml or json)
-      - there is only one one volume
-      - it looks like the following config
+      - it contains the following config
 
     ```yaml
     ---
     attach_volumes:
       - volume_id: volume_id
-        device_name: device_id
+        device_name: device_name
     ```
 
-    :return: A tuple of volume id and device name (in that order)
+    :return: A List of VolumeAttachment objects with volume id and device name
     """
-    attach_volumes = tools.get_parsed_user_data().get('attach_volumes', [])
-    if len(attach_volumes) != 1:
-        raise ParsingError("Only one volume supported at this time")
-    volume_information = attach_volumes[0]
-    return volume_information['volume_id'], volume_information['device_name']
+    volumes = []
+    user_data = tools.get_parsed_user_data()
+    if user_data:
+        attach_volumes = user_data.get('attach_volumes', [])
+        for i, volume in enumerate(attach_volumes):
+            try:
+                v = tools.VolumeAttachment(volume_id=volume['volume_id'], device_name=volume['device_name'])
+            except KeyError as e:
+                raise RuntimeError("While parsing 'attach_volumes' index {i}".format(i=i)) from e
+            volumes.append(v)
+
+    return volumes
 
 
 def try_attach(
@@ -86,14 +92,21 @@ def try_attach(
         retry_limit: int,
         retry_interval: int,
 ) -> None:
-    print(f"""\
+    print("""\
         volume_id {volume_id}
         device_name {device_name}
         instance_id {instance_id}
         region {region}
         retry_limit {retry_limit}
         retry_interval {retry_interval}
-    """)
+    """.format(
+        volume_id=volume_id,
+        device_name=device_name,
+        instance_id=instance_id,
+        region=region,
+        retry_limit=retry_limit,
+        retry_interval=retry_interval,
+    ))
 
     attached = False
     retry = 0
@@ -145,6 +158,10 @@ if __name__ == "__main__":
     args = vars(args)
 
     if not args['volume_id']:
-        args['volume_id'], args['device_name'] = get_volume_information_from_user_data()
-
-    try_attach(**args)
+        volume_data = get_volume_information_from_user_data()
+        for volume in volume_data:
+            args['volume_id'] = volume.volume_id
+            args['device_name'] = volume.device_name
+            try_attach(**args)
+    else:
+        try_attach(**args)

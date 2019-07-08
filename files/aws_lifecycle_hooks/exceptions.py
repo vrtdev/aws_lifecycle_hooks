@@ -11,4 +11,3 @@ class VolumeInUseError(botocore.exceptions.ClientError):
 
 class ParsingError(Exception):
     pass
-
