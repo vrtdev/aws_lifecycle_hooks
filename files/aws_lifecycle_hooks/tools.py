@@ -5,8 +5,12 @@ File managed by puppet in module aws_lifecycle_hooks
 import json
 import functools
 import urllib.request
+import urllib.error
 import typing
+#todo: are we certain this gets installed?
 import yaml
+
+from exceptions import ParsingError
 
 
 @functools.lru_cache(maxsize=1)
@@ -31,28 +35,31 @@ def get_instance_region() -> str:
 
 
 @functools.lru_cache(maxsize=1)
-def get_user_data() -> typing.Mapping[str, typing.Any]:
+def get_user_data() -> str:
     try:
         user_data = urllib.request.urlopen(
             "http://169.254.169.254/2016-09-02/user-data"
         ).read()
-        print("My raw user-data is {user_data}".format(user_data=user_data))
-        try:
-            user_data = yaml.safe_load(user_data)
-            print("My yaml user-data is {user_data}".format(user_data=user_data))
-        except:
-            try:
-                user_data = json.loads(user_data.decode('utf-8'))
-                print("My json user-data is {user_data}".format(user_data=user_data))
-            except:
-                pass
-
+        print(f"My raw user-data is {user_data}")
         return user_data
     except urllib.error.HTTPError as e:
         if e.status == 404:
             print('No user_data found.')
         else:
             raise
+
+
+@functools.lru_cache(maxsize=1)
+def get_parsed_user_data() -> typing.Mapping[str, typing.Any]:
+    user_data = get_user_data()
+    try:
+        # every JSON file is also valid YAML, so we only need to parse YAML.
+        user_data = yaml.safe_load(user_data)
+        print(f"My parsed user-data is {user_data}")
+    except yaml.YAMLError as e:
+        raise ParsingError("Failed to parse User Data") from e
+
+    return user_data
 
 
 @functools.lru_cache()
