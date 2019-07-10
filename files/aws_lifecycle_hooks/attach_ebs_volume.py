@@ -4,8 +4,6 @@ File managed by puppet in module aws_lifecycle_hooks
 '''
 import time
 import typing
-
-# todo: are we sure this gets installed?
 import boto3
 import botocore.exceptions
 

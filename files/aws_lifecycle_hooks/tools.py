@@ -7,7 +7,6 @@ import functools
 import urllib.request
 import urllib.error
 import typing
-# todo: are we certain this gets installed?
 import yaml
 import attr
 
