@@ -10,7 +10,7 @@
 #
 class aws_lifecycle_hooks (
   String                            $base_dir           = '/opt/aws_lifecycle_hooks',
-  Array[String]                     $base_requirements  = ['boto3'],
+  Array[String]                     $base_requirements  = ['boto3', 'pyyaml', 'attrs'],
   Array[String]                     $requirements       = [],
   Hash                              $entry_scripts      = {},
   Array[String]                     $script_sources     = [],
