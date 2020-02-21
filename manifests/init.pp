@@ -67,6 +67,7 @@ class aws_lifecycle_hooks (
     venv_dir     => "${base_dir}/venv",
     version      => '3',
     requirements => "${base_dir}/requirements.txt",
-    require      => Class['python']
+    require      => Class['python'],
+    distribute   => false,
   }
 }
