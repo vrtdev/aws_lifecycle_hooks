@@ -1,6 +1,12 @@
-# Define: aws_lifecycle_hooks::entry_script
-# Parameters:
-# arguments
+# Manage the entry_script of aws_lifecycle_hooks
+# 
+# @param base_dir Directory to deploy lifecycle hook scripts to.
+# @param script_name Name of the lifecycle hook script.
+# @param index Index number of the script, used for execution ordering.
+# @param use_python_venv Boolean to use a python virtual env or not.
+# @param parameters Array of additional parameters to give to the script.
+# @param ensure Whether the file should exist.
+# @param pass_state_dir_param Boolean to pass the state dir as a param or not.
 #
 define aws_lifecycle_hooks::entry_script (
   String                            $base_dir,
