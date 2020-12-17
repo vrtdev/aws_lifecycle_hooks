@@ -1,7 +1,5 @@
 #!/usr/bin/env python
-'''
-File managed by puppet in module aws_lifecycle_hooks
-'''
+"""File managed by puppet in module aws_lifecycle_hooks."""
 import time
 import typing
 import boto3
@@ -18,7 +16,8 @@ def attach_volume(
         device_name: str = "/dev/sdf",
 ) -> None:
     """
-    Try to attach volume `volume_id` to instance `instance_id` in region
+    Try to attach volume `volume_id` to instance `instance_id` in region.
+
     `region_name` as device `device_name`.
     :param volume_id: The volume-id to attach
     :param region_name: The region to perform the call in. Default: the region
@@ -56,8 +55,8 @@ def get_volume_information_from_user_data() -> list:
     Get the volume id and device name from the user data.
 
     For this we assume that:
-      - the user_data is parsable (yaml or json)
-      - it contains the following config
+        - the user_data is parsable (yaml or json)
+        - it contains the following config
 
     ```yaml
     ---
