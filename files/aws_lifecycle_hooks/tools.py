@@ -1,7 +1,5 @@
 #!/usr/bin/env python
-'''
-File managed by puppet in module aws_lifecycle_hooks
-'''
+"""File managed by puppet in module aws_lifecycle_hooks."""
 import json
 import functools
 import urllib.request
@@ -9,32 +7,82 @@ import urllib.error
 import typing
 import yaml
 import attr
+import re
 
 from exceptions import ParsingError
 
 
 @attr.s
 class VolumeAttachment:
+    """Utility class."""
+
     volume_id = attr.ib()
     device_name = attr.ib()
 
 
+def metadata_version() -> str:
+    """AWS Metadata version string."""
+    return '2020-10-27'
+
+
+@functools.lru_cache(maxsize=1)
+def get_metadata_token() -> str:
+    """
+    Instance Metadata Service Version 2 (IMDSv2).
+
+    https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/configuring-instance-metadata-service.html
+    Token fetching does not seem to work with versioned requests. Gives HTTP 403
+    """
+    headers = {'X-aws-ec2-metadata-token-ttl-seconds': 60}
+    req = urllib.request.Request(
+        url='http://169.254.169.254/latest/api/token',
+        headers=headers,
+        method='PUT',
+    )
+    with urllib.request.urlopen(req) as resp:
+        response_data = resp.read().decode("utf-8")
+    return response_data
+
+
+@functools.lru_cache(maxsize=1)
+def get_metadata(key: str) -> str:
+    """Fetch meta-data with latest version by key."""
+    headers = {'X-aws-ec2-metadata-token': get_metadata_token()}
+    req = urllib.request.Request(
+        url="http://169.254.169.254/{version}/{key}".format(
+            version=metadata_version(),
+            key=key,
+        ),
+        headers=headers,
+    )
+    try:
+        with urllib.request.urlopen(req) as resp:
+            response_data = resp.read().decode("utf-8")
+        return response_data
+    except urllib.error.HTTPError as e:
+        if e.status == 404:
+            print("Key '{key}' not found in meta-data service.".format(key=key))
+        else:
+            raise
+
+
 @functools.lru_cache(maxsize=1)
 def get_instance_identity() -> typing.Mapping[str, typing.Any]:
-    instance_identity = urllib.request.urlopen(
-        "http://169.254.169.254/2016-09-02/dynamic/instance-identity/document"
-    ).read()
-    instance_identity = json.loads(instance_identity.decode('utf-8'))
+    """Query instance identity."""
+    instance_identity = get_metadata('dynamic/instance-identity/document')
+    instance_identity = json.loads(instance_identity)
     return instance_identity
 
 
 def get_instance_id() -> str:
+    """Query instance id."""
     instance_id = get_instance_identity()['instanceId']
     print("My instance_id is {instance_id}".format(instance_id=instance_id))
     return instance_id
 
 
 def get_instance_region() -> str:
+    """Query instance region."""
     instance_region = get_instance_identity()['region']
     print("My region is {instance_region}".format(instance_region=instance_region))
     return instance_region
@@ -42,21 +90,15 @@ def get_instance_region() -> str:
 
 @functools.lru_cache(maxsize=1)
 def get_user_data() -> str:
-    try:
-        user_data = urllib.request.urlopen(
-            "http://169.254.169.254/2016-09-02/user-data"
-        ).read()
-        print("My raw user-data is {user_data}".format(user_data=user_data))
-        return user_data
-    except urllib.error.HTTPError as e:
-        if e.status == 404:
-            print('No user_data found.')
-        else:
-            raise
+    """Get user data."""
+    user_data = get_metadata('user-data')
+    print("My raw user-data is {user_data}".format(user_data=user_data))
+    return user_data
 
 
 @functools.lru_cache(maxsize=1)
 def get_parsed_user_data() -> typing.Mapping[str, typing.Any]:
+    """Get parsed user data."""
     user_data = get_user_data()
     if user_data:
         try:
@@ -74,19 +116,128 @@ def get_asg_name(
         instance_id: str,
         asg_client,
 ) -> str:
-    asg_info = asg_client.describe_auto_scaling_instances(InstanceIds=[instance_id])
-    asg_name = asg_info[u'AutoScalingInstances'][0][u'AutoScalingGroupName']
-    print("I am part of Auto Scaling Group {asg_name}".format(asg_name=asg_name))
+    """Use describe asg to get asg group name."""
+    import botocore.exceptions
+    asg_name = None
+    try:
+        asg_info = asg_client.describe_auto_scaling_instances(InstanceIds=[instance_id])
+        asg_name = asg_info[u'AutoScalingInstances'][0][u'AutoScalingGroupName']
+        print("I am part of Auto Scaling Group {asg_name}".format(asg_name=asg_name))
+    except botocore.exceptions.ClientError as e:
+        if e.response['Error']['Code'] == "AccessDenied":
+            print('This instance/user has no permission to query autoscaling.')
+        else:
+            raise
 
     return asg_name
 
 
+@functools.lru_cache(maxsize=1)
+def get_block_device_mapping() -> list:
+    """Get meta-data Block device mapping."""
+    block_device_mapping = get_metadata('meta-data/block-device-mapping')
+    print("My raw block-device-mapping is {block_device_mapping}".format(block_device_mapping=block_device_mapping))
+    block_device_mapping_list = [x for x in block_device_mapping.splitlines()]
+    return block_device_mapping_list
+
+
+def get_block_device_mapping_filtered(regex: str) -> list:
+    """Apply filter to get_block_device_mapping() result."""
+    block_device_mapping_list = get_block_device_mapping()
+
+    p = re.compile(regex)
+    block_device_mapping_list_filtered = [s for s in block_device_mapping_list if p.match(s)]
+    return block_device_mapping_list_filtered
+
+
+def get_block_device_mountpoint(regex: str) -> list:
+    devices = get_block_device_mapping_filtered(regex)
+    mountpoints = []
+    for device in devices:
+        mountpoint = get_metadata("meta-data/block-device-mapping/{device}".format(device=device))
+        mountpoints.append(mountpoint)
+
+    return mountpoints
+
+
 def test_tools():
-    import boto3
+    """Test all these methods."""
+    get_metadata_token()
+
+    get_metadata('user-data')
+
+    get_instance_identity()
+
+    get_user_data()
+
+    get_parsed_user_data()
 
     instance_id = get_instance_id()
     region = get_instance_region()
+    import boto3
     asg_client = boto3.client('autoscaling', region_name=region)
     """:type : pyboto3.autoscaling"""
     get_asg_name(instance_id, asg_client)
-    get_user_data()
+
+    print("Test get_block_device_mapping()")
+    print(get_block_device_mapping())
+
+    print("Test get_block_device_mapping_filtered('')")
+    print(get_block_device_mapping_filtered(''))
+
+    print("Test get_block_device_mapping_filtered('root')")
+    print(get_block_device_mapping_filtered('root'))
+
+    print("Test get_block_device_mapping_filtered('ebs*')")
+    print(get_block_device_mapping_filtered('ebs*'))
+
+    print("Test get_block_device_mapping_filtered('ebs[0-9]+')")
+    print(get_block_device_mapping_filtered('ebs[0-9]+'))
+
+    print("Test get_block_device_mountpoint('')")
+    print(get_block_device_mountpoint(''))
+
+    print("Test get_block_device_mountpoint('root')")
+    print(get_block_device_mountpoint('root'))
+
+    print("Test get_block_device_mountpoint('ebs[0-9]+')")
+    print(get_block_device_mountpoint('ebs[0-9]+'))
+
+    get_metadata('user-data-x')
+
+# Python 3.7.3 (default, Jul 25 2020, 13:03:44)
+# [GCC 8.3.0] on linux
+# Type "help", "copyright", "credits" or "license" for more information.
+# >>> import t
+# >>> t.test_tools()
+# My raw user-data is
+#         #cloud-config
+#         attach_volumes:
+#         - volume_id: vol-0f4e30092431fa402
+#           device_name: /dev/xvdm
+#
+# My parsed user-data is {'attach_volumes': [{'volume_id': 'vol-0f4e30092431fa402', 'device_name': '/dev/xvdm'}]}
+# My instance_id is i-07ba9e6f1d7d9eb0f
+# My region is eu-west-1
+# This instance/user has no permission to query autoscaling.
+# Test get_block_device_mapping()
+# My raw block-device-mapping is ami
+# ebs2
+# ebs3
+# root
+# ['ami', 'ebs2', 'ebs3', 'root']
+# Test get_block_device_mapping_filtered('')
+# ['ami', 'ebs2', 'ebs3', 'root']
+# Test get_block_device_mapping_filtered('root')
+# ['root']
+# Test get_block_device_mapping_filtered('ebs*')
+# ['ebs2', 'ebs3']
+# Test get_block_device_mapping_filtered('ebs[0-9]+')
+# ['ebs2', 'ebs3']
+# Test get_block_device_mountpoint('')
+# ['xvda', 'xvdf', 'xvdm', '/dev/xvda']
+# Test get_block_device_mountpoint('root')
+# ['/dev/xvda']
+# Test get_block_device_mountpoint('ebs[0-9]+')
+# ['xvdf', 'xvdm']
+# Key 'user-data-x' not found in meta-data service.
