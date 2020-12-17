@@ -9,6 +9,12 @@ import tools
 from exceptions import VolumeInUseError
 
 
+def device_mounted(device: str) -> bool:
+    ebs_mountpoints = tools.get_block_device_mountpoint('ebs[0-9]+')
+    if device in ebs_mountpoints:
+        return True
+
+
 def attach_volume(
         volume_id: str,
         region_name: typing.Optional[str] = None,
@@ -104,6 +110,9 @@ def try_attach(
         retry_limit=retry_limit,
         retry_interval=retry_interval,
     ))
+
+    if device_mounted(device_name.replace('/dev/', '')):
+        return
 
     attached = False
     retry = 0
