@@ -3,11 +3,13 @@
 import json
 import functools
 import urllib.request
+import urllib.parse
 import urllib.error
 import typing
 import yaml
 import attr
 import re
+import subprocess
 
 from exceptions import ParsingError
 
@@ -78,6 +80,37 @@ def get_instance_id() -> str:
     return instance_id
 
 
+@functools.lru_cache(maxsize=1)
+def get_instance_identity_rsa2048() -> str:
+    """Query instance identity rsa2048."""
+    instance_identity_rsa2048 = get_metadata('dynamic/instance-identity/rsa2048')
+    return instance_identity_rsa2048
+
+
+# We have to see if the result is ok/reliable with cache... 
+@functools.lru_cache(maxsize=1)
+def get_lambda_describe_instance() -> typing.Mapping[str, typing.Any]:
+    """Query describe instance via (puppet) lambda."""
+    rsa2048_ml = get_instance_identity_rsa2048()
+    rsa2048 = rsa2048_ml.replace('\n', '')
+    rsa2048_bytes = bytes(rsa2048, encoding='utf-8')
+    with urllib.request.urlopen('https://cert-lambda.core.a51.be/describe_instance', rsa2048_bytes) as resp:
+        response_data = resp.read().decode("utf-8")
+        response_data_json = json.loads(response_data)
+    return response_data_json
+
+
+def nvme_device_volume_id(nvme_device: str) -> typing.Optional[str]:
+    """Query sn from nvme, which gives volume id."""
+    device_info = subprocess.check_output(['nvme', 'id-ctrl', '-v', nvme_device]).decode("utf-8")
+    device_info_out = re.search(r'sn\s*:\s*vol(.+)\n', device_info)
+    if not device_info_out:
+        return None
+    volume_id = device_info_out.group(1)
+    volume_id = 'vol-' + volume_id
+    return volume_id
+
+
 def get_instance_region() -> str:
     """Query instance region."""
     instance_region = get_instance_identity()['region']
@@ -114,6 +147,8 @@ def get_asg_name(
         asg_client,
 ) -> typing.Optional[str]:
     """Use describe asg to get asg group name."""
+
+    # Using a local import here because we are not sure about the setup of all instances using this lib.
     import botocore.exceptions
     asg_name = None
     try:
@@ -164,9 +199,22 @@ def test_tools():
 
     get_instance_identity()
 
+    print('get_instance_identity_rsa2048()')
+    print(get_instance_identity_rsa2048())
+
+    print('get_lambda_describe_instance()')
+    print(get_lambda_describe_instance())
+
     get_user_data()
 
     get_parsed_user_data()
+
+    import glob
+
+    nvme_devices_list = glob.glob('/dev/nvme[0-9]')
+    for nvme_device in nvme_devices_list:
+        print(f"nvme_device_volume_id({nvme_device})")
+        print(nvme_device_volume_id(nvme_device))
 
     instance_id = get_instance_id()
     region = get_instance_region()

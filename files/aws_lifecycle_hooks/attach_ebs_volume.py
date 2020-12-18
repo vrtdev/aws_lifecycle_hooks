@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 """File managed by puppet in module aws_lifecycle_hooks."""
-import re
+import glob
 import time
 import typing
 import boto3
@@ -10,11 +10,13 @@ import tools
 from exceptions import VolumeInUseError
 
 
-def device_mounted(device: str) -> bool:
-    """Check if a device is in the discovered mountpoints list."""
-    filter_re = re.compile('ebs[0-9]+')
-    ebs_mountpoints = tools.get_block_device_mountpoint(filter_re)
-    return (device in ebs_mountpoints)
+def volume_id_attached(volume_id: str) -> bool:
+    """Check if a volume_id is attached."""
+    nvme_devices_list = glob.glob('/dev/nvme[0-9]')
+    for nvme_device in nvme_devices_list:
+        if tools.nvme_device_volume_id(nvme_device) == volume_id:
+            return True
+    return False
 
 
 def attach_volume(
@@ -113,8 +115,8 @@ def try_attach(
         retry_interval=retry_interval,
     ))
 
-    if device_mounted(device_name.replace('/dev/', '')):
-        print(f"Requested device '{device_name}' is already mounted.")
+    if volume_id_attached(volume_id):
+        print(f"Requested volume '{volume_id}' is already attached.")
         return
 
     attached = False
