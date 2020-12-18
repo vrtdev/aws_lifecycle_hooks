@@ -11,6 +11,8 @@ import re
 
 from exceptions import ParsingError
 
+metadata_version = '2020-10-27'
+
 
 @attr.s
 class VolumeAttachment:
@@ -18,11 +20,6 @@ class VolumeAttachment:
 
     volume_id = attr.ib()
     device_name = attr.ib()
-
-
-def metadata_version() -> str:
-    """AWS Metadata version string."""
-    return '2020-10-27'
 
 
 @functools.lru_cache(maxsize=1)
@@ -44,13 +41,13 @@ def get_metadata_token() -> str:
     return response_data
 
 
-@functools.lru_cache(maxsize=1)
-def get_metadata(key: str) -> str:
+@functools.lru_cache()
+def get_metadata(key: str) -> typing.Union[None, str]:
     """Fetch meta-data with latest version by key."""
     headers = {'X-aws-ec2-metadata-token': get_metadata_token()}
     req = urllib.request.Request(
         url="http://169.254.169.254/{version}/{key}".format(
-            version=metadata_version(),
+            version=metadata_version,
             key=key,
         ),
         headers=headers,
@@ -115,7 +112,7 @@ def get_parsed_user_data() -> typing.Mapping[str, typing.Any]:
 def get_asg_name(
         instance_id: str,
         asg_client,
-) -> str:
+) -> typing.Optional[str]:
     """Use describe asg to get asg group name."""
     import botocore.exceptions
     asg_name = None
@@ -136,21 +133,20 @@ def get_asg_name(
 def get_block_device_mapping() -> list:
     """Get meta-data Block device mapping."""
     block_device_mapping = get_metadata('meta-data/block-device-mapping')
-    print("My raw block-device-mapping is {block_device_mapping}".format(block_device_mapping=block_device_mapping))
-    block_device_mapping_list = [x for x in block_device_mapping.splitlines()]
+    print("My raw block-device-mapping is\n{block_device_mapping}".format(block_device_mapping=block_device_mapping))
+    block_device_mapping_list = block_device_mapping.splitlines()
     return block_device_mapping_list
 
 
-def get_block_device_mapping_filtered(regex: str) -> list:
+def get_block_device_mapping_filtered(regex: re.Pattern) -> list:
     """Apply filter to get_block_device_mapping() result."""
     block_device_mapping_list = get_block_device_mapping()
 
-    p = re.compile(regex)
-    block_device_mapping_list_filtered = [s for s in block_device_mapping_list if p.match(s)]
+    block_device_mapping_list_filtered = [s for s in block_device_mapping_list if regex.match(s)]
     return block_device_mapping_list_filtered
 
 
-def get_block_device_mountpoint(regex: str) -> list:
+def get_block_device_mountpoint(regex: re.Pattern) -> list:
     devices = get_block_device_mapping_filtered(regex)
     mountpoints = []
     for device in devices:
@@ -183,25 +179,32 @@ def test_tools():
     print(get_block_device_mapping())
 
     print("Test get_block_device_mapping_filtered('')")
-    print(get_block_device_mapping_filtered(''))
+    r1 = re.compile('')
+    print(get_block_device_mapping_filtered(r1))
 
     print("Test get_block_device_mapping_filtered('root')")
-    print(get_block_device_mapping_filtered('root'))
+    r2 = re.compile('root')
+    print(get_block_device_mapping_filtered(r2))
 
     print("Test get_block_device_mapping_filtered('ebs*')")
-    print(get_block_device_mapping_filtered('ebs*'))
+    r3 = re.compile('ebs*')
+    print(get_block_device_mapping_filtered(r3))
 
     print("Test get_block_device_mapping_filtered('ebs[0-9]+')")
-    print(get_block_device_mapping_filtered('ebs[0-9]+'))
+    r4 = re.compile('ebs[0-9]+')
+    print(get_block_device_mapping_filtered(r4))
 
     print("Test get_block_device_mountpoint('')")
-    print(get_block_device_mountpoint(''))
+    r5 = re.compile('')
+    print(get_block_device_mountpoint(r5))
 
     print("Test get_block_device_mountpoint('root')")
-    print(get_block_device_mountpoint('root'))
+    r6 = re.compile('root')
+    print(get_block_device_mountpoint(r6))
 
     print("Test get_block_device_mountpoint('ebs[0-9]+')")
-    print(get_block_device_mountpoint('ebs[0-9]+'))
+    r7 = re.compile('ebs[0-9]+')
+    print(get_block_device_mountpoint(r7))
 
     get_metadata('user-data-x')
 
