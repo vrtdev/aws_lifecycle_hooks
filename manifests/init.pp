@@ -15,6 +15,7 @@ class aws_lifecycle_hooks (
   Hash                              $entry_scripts      = {},
   Array[String]                     $script_sources     = [],
   String                            $state_dir          = '/var/run/aws_lifecycle_hooks/status',
+  String                            $version            = 'system',
 ){
   # resources
   if ! empty($script_sources) {
@@ -62,12 +63,20 @@ class aws_lifecycle_hooks (
     }
   }
 
-  python::virtualenv { $base_dir:
-    ensure       => 'present',
-    venv_dir     => "${base_dir}/venv",
-    version      => '3',
-    requirements => "${base_dir}/requirements.txt",
-    require      => Class['python'],
-    distribute   => false,
+  $venv_dir = "${base_dir}/venv"
+  $req_path = "${base_dir}/requirements.txt"
+  $python_pyvenvs = {
+    $venv_dir => {
+      'version' => $version,
+    },
   }
+  $python_requirements = {
+    $req_path => {
+      'forceupdate' => true,
+      'virtualenv'  => $venv_dir,
+    },
+  }
+  create_resources('python::pyvenv', $python_pyvenvs)
+  create_resources('python::requirements', $python_requirements)
+
 }
