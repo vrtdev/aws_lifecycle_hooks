@@ -47,6 +47,7 @@ class aws_lifecycle_hooks (
     ensure  => file,
     mode    => '0444',
     content => $requirements_str,
+    notify  => Exec["python_requirements${base_dir}/requirements.txt"],
   }
 
   exec { 'aws_lifecycle_hooks : Create /var/lib/cloud/scripts/per-boot':
@@ -72,7 +73,6 @@ class aws_lifecycle_hooks (
   }
   $python_requirements = {
     $req_path => {
-      'forceupdate' => true,
       'virtualenv'  => $venv_dir,
     },
   }
